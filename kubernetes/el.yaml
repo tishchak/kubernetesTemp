@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: elasticsearch
+  namespace: elastic
   labels:
     service: elasticsearch
 spec:
@@ -86,6 +87,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: es
+  namespace: elastic
   labels:
     app: es
 spec:
