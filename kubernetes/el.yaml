@@ -77,10 +77,10 @@ spec:
           service: elasticsearch
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        storageClassName: "gp2"
+        storageClassName: "standard"
         resources:
           requests:
-            storage: 30Gi
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
