@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webserver
+  labels:
+    app: webserver
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: webserver
+  template:
+    metadata:
+      labels:
+        app: webserver
+    spec:
+      containers:
+      - name: webserver
+        image: quay.io/myafk/interactive:stable
+        command: ["interactive"]
+        args: ["ingress"]
+        ports:
+        - containerPort: 8085
+        envFrom:
+        - configMapRef:
+            name: webserver-config
+        - configMapRef:
+            name: app-shared-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webserver-service
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8085
+  selector:
+    app: webserver
