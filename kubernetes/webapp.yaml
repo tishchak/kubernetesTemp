@@ -1,8 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webserver-config
+  namespace: webapp
+data:
+  REDIS_SLAVE_HOST: "redis-slave"
+  REDIS_MASTER_HOST: "redis-master"
+  KUBERNETES_SERVICE_HOST: ""
+  KUBERNETES_SERVICE_PORT: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-shared-config
+  namespace: webapp
+data:
+  ELASTICSEARCH_HOSTS: "http://elasticsearch-0.es.elastic.svc.cluster.local:9200"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: webserver
-  namespace: elastic
+  namespace: webapp
   labels:
     app: webserver
 spec:
@@ -33,7 +57,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: webserver-service
-  namespace: elastic
+  namespace: webapp
 spec:
   type: LoadBalancer
   ports:
@@ -42,3 +66,111 @@ spec:
     targetPort: 8085
   selector:
     app: webserver
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-master
+  namespace: webapp
+  labels:
+    app: redis-master
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: redis-master
+  template:
+    metadata:
+      labels:
+        app: redis-master
+    spec:
+      containers:
+      - name: redis-master
+        image: redis
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master-service
+  namespace: webapp
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 6379
+    targetPort: 6379
+  selector:
+    app: redis-master
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-slave-config
+  namespace: webapp
+data:
+  REDIS_MASTER_HOST: "redis-master-service"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-slave
+  namespace: webapp
+  labels:
+    app: redis-slave
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: redis-slave
+  template:
+    metadata:
+      labels:
+        app: redis-slave
+    spec:
+      containers:
+      - name: redis-slave
+        image: redis
+        command: ["/bin/bash"]
+        args: ["-c", "redis-server --slaveof $$REDIS_MASTER_HOST 6379"]
+        ports:
+        - containerPort: 6379
+        envFrom:
+        - configMapRef:
+            name: redis-slave-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-slave-service
+  namespace: webapp
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 6379
+    targetPort: 6379
+  selector:
+    app: redis-slave
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webapp
+  namespace: webapp
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /getTaskAnswer
+        pathType: Prefix
+        backend:
+          service:
+            name: webserver-service
+            port:
+              number: 80

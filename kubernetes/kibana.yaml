@@ -1,8 +1,21 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kibana
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-shared-config
+  namespace: kibana
+data:
+  ELASTICSEARCH_HOSTS: "http://elasticsearch-0.es.elastic.svc.cluster.local:9200"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kibana
-  namespace: elastic
+  namespace: kibana
   labels:
     app: kibana
 spec:
@@ -36,7 +49,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kibana-service
-  namespace: elastic
+  namespace: kibana
 spec:
   type: LoadBalancer
   ports:
@@ -45,3 +58,22 @@ spec:
     targetPort: 5601
   selector:
     app: kibana
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kibana
+  namespace: kibana
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /kibana
+        pathType: Prefix
+        backend:
+          service:
+            name: kibana-service
+            port:
+              number: 80
